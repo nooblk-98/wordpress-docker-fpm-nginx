@@ -13,9 +13,21 @@ services:
       - certbot_www:/var/www/certbot
       - certbot_certs:/etc/letsencrypt
     depends_on:
-      - php
+      php:
+        condition: service_healthy
     networks:
       - wp_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   php:
     build:
@@ -33,10 +45,26 @@ services:
       - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
       - WORDPRESS_DB_USER=${DB_USER:-wpuser}
       - WORDPRESS_DB_PASSWORD=${DB_PASSWORD:-wppassword}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - wp_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "php-fpm", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   db:
     image: mariadb:${DB_VERSION:-11}
@@ -51,6 +79,57 @@ services:
       - db_data:/var/lib/mysql
     networks:
       - wp_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:alpine
+    container_name: wp_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory ${REDIS_MAXMEMORY:-128mb} --maxmemory-policy allkeys-lru
+    networks:
+      - wp_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  wpcli:
+    image: wordpress:cli
+    container_name: wp_cli
+    volumes:
+      - ./wordpress:/var/www/html
+    environment:
+      - WORDPRESS_DB_HOST=${DB_HOST:-db}
+      - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
+      - WORDPRESS_DB_USER=${DB_USER:-wpuser}
+      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD:-wppassword}
+    depends_on:
+      db:
+        condition: service_healthy
+      php:
+        condition: service_healthy
+    networks:
+      - wp_network
+    user: "33:33"
+    profiles:
+      - tools
 
   certbot:
     image: certbot/certbot:latest

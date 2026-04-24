@@ -9,7 +9,9 @@ Production-ready WordPress stack using PHP-FPM, Nginx, and MariaDB — fully con
 | Nginx    | `nginx:alpine`                 |
 | PHP-FPM  | `wordpress:php8.3-fpm-alpine`  |
 | Database | `mariadb:11`                   |
+| Redis    | `redis:alpine`                 |
 | SSL      | `certbot/certbot`              |
+| WP-CLI   | `wordpress:cli`                |
 
 ---
 
@@ -123,6 +125,45 @@ Visit `http://yourdomain.com` in your browser and follow the WordPress setup wiz
 
 ---
 
+## Redis Object Cache
+
+Redis is included in the stack for persistent object caching. After the containers are running, enable it with WP-CLI:
+
+```bash
+docker compose --profile tools run --rm wpcli wp plugin install redis-cache --activate
+docker compose --profile tools run --rm wpcli wp redis enable
+```
+
+Verify Redis is connected:
+
+```bash
+docker compose --profile tools run --rm wpcli wp redis status
+```
+
+> Redis memory limit is controlled by `REDIS_MAXMEMORY` in `.env` (default: `128mb`).
+
+---
+
+## WP-CLI
+
+Run any WP-CLI command without entering the container:
+
+```bash
+docker compose --profile tools run --rm wpcli wp <command>
+```
+
+Common examples:
+
+| Action                  | Command                                                                 |
+|-------------------------|-------------------------------------------------------------------------|
+| List plugins            | `docker compose --profile tools run --rm wpcli wp plugin list`         |
+| Update all plugins      | `docker compose --profile tools run --rm wpcli wp plugin update --all` |
+| Flush cache             | `docker compose --profile tools run --rm wpcli wp cache flush`         |
+| Search-replace URL      | `docker compose --profile tools run --rm wpcli wp search-replace 'old.com' 'new.com'` |
+| Create admin user       | `docker compose --profile tools run --rm wpcli wp user create admin admin@example.com --role=administrator` |
+
+---
+
 ## SSL Setup (Let's Encrypt)
 
 ### Prerequisites
@@ -166,18 +207,21 @@ docker compose up certbot
 
 ## Common Commands
 
-| Action                  | Command                                      |
-|-------------------------|----------------------------------------------|
-| Start stack             | `docker compose up -d`                       |
-| Stop stack              | `docker compose down`                        |
-| View logs               | `docker compose logs -f`                     |
-| Nginx logs              | `docker compose logs -f nginx`               |
-| PHP logs                | `docker compose logs -f php`                 |
-| Restart Nginx           | `docker compose restart nginx`               |
-| Reload Nginx config     | `docker compose exec nginx nginx -s reload`  |
-| MySQL shell             | `docker compose exec db mysql -u wpuser -p`  |
-| PHP shell               | `docker compose exec php bash`               |
-| Rebuild PHP image       | `docker compose build php`                   |
+| Action                  | Command                                                                        |
+|-------------------------|--------------------------------------------------------------------------------|
+| Start stack             | `docker compose up -d`                                                         |
+| Stop stack              | `docker compose down`                                                          |
+| View logs               | `docker compose logs -f`                                                       |
+| Nginx logs              | `docker compose logs -f nginx`                                                 |
+| PHP logs                | `docker compose logs -f php`                                                   |
+| Restart Nginx           | `docker compose restart nginx`                                                 |
+| Reload Nginx config     | `docker compose exec nginx nginx -s reload`                                    |
+| MySQL shell             | `docker compose exec db mysql -u wpuser -p`                                    |
+| PHP shell               | `docker compose exec php bash`                                                 |
+| Rebuild PHP image       | `docker compose build php`                                                     |
+| Redis CLI               | `docker compose exec redis redis-cli`                                          |
+| Flush Redis cache       | `docker compose --profile tools run --rm wpcli wp cache flush`                 |
+| Run WP-CLI command      | `docker compose --profile tools run --rm wpcli wp <command>`                   |
 
 ---
 
@@ -244,6 +288,10 @@ tar -czf wordpress_files_$(date +%F).tar.gz wordpress/
 
 **SSL certificate failed**
 - Ensure DNS is propagated and port 80 is open on your firewall.
+
+**Redis not connecting**
+- Check Redis is running: `docker compose logs redis`
+- Verify status inside WordPress: `docker compose --profile tools run --rm wpcli wp redis status`
 
 ---
 
