@@ -1,4 +1,5 @@
-FROM wordpress:php8.3-fpm-alpine
+ARG PHP_VERSION=8.3
+FROM wordpress:php${PHP_VERSION}-fpm-alpine
 
 RUN apk add --no-cache \
     imagemagick \
