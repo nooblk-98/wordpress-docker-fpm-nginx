@@ -1,173 +1,252 @@
-<div align="center">
-  <img src="./images/logo.svg" width="360" alt="linux-toolbox logo" />
+# WordPress Docker FPM + Nginx
 
-# Linux Toolbox
+Production-ready WordPress stack using PHP-FPM, Nginx, and MariaDB — fully containerized with Docker Compose. Includes an auto setup script with optional Let's Encrypt SSL.
 
-**Interactive Linux server management scripts with a fast terminal menu.**
+## Stack
 
-![Bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)
-![Platform](https://img.shields.io/badge/Platform-Linux-blue.svg)
-![Scripts](https://img.shields.io/badge/Scripts-23-brightgreen.svg)
-
-</div>
-
----
-
-## What is included
-
-- Interactive menu runner (`run.sh`) with live system info.
-- Curated scripts for networking, security, web servers, Docker, and system admin.
-- Installer helpers for Node.js, PHP, and common web stacks.
-- Simple maintenance utilities (swap, users, firewall, ports, bandwidth).
+| Service  | Image                          |
+|----------|--------------------------------|
+| Nginx    | `nginx:alpine`                 |
+| PHP-FPM  | `wordpress:php8.3-fpm-alpine`  |
+| Database | `mariadb:11`                   |
+| SSL      | `certbot/certbot`              |
 
 ---
 
-## Features
+## Project Structure
 
-### Security and hardening
-- SSH hardening with safe defaults.
-- Firewall management helper.
-- Fail2ban setup automation.
-
-### Ops experience
-- Interactive menu with auto-discovered categories.
-- Clear prompts and colorized output.
-- Works as single scripts or via the menu.
-
-### Stacks covered
-- Docker + cleanup utilities.
-- Nginx, Apache, and reverse proxy setup.
-- Certbot SSL manager.
-- Node.js + PM2 process management.
-- PHP installer and extensions.
-
----
-
-## Quick Start
-
-### Option 1: Run the menu (recommended)
-```bash
-rm -f run.sh; bash <(curl -sSL "https://raw.githubusercontent.com/nooblk-98/linux-toolbox/main/run.sh")
 ```
-
-### Option 2: Clone and run a script directly
-```bash
-git clone https://github.com/nooblk-98/linux-toolbox.git
-cd linux-toolbox
-
-# Example: install Nginx
-sudo bash tools/webserver/install-nginx.sh
+.
+├── docker-compose.yml
+├── setup.sh                  # Auto setup script
+├── .env.example              # Environment variable template
+├── nginx/
+│   ├── nginx.conf            # Main Nginx config
+│   └── conf.d/
+│       └── wordpress.conf    # WordPress virtual host
+├── php/
+│   ├── Dockerfile            # PHP-FPM image with extensions
+│   └── php.ini               # Custom PHP settings
+└── wordpress/                # WordPress files (auto-created, git-ignored)
 ```
 
 ---
 
-## Script Categories
+## Quick Start (Auto Setup)
 
-### Development (5 scripts)
-| Script | Description |
-|--------|-------------|
-| `git-setup.sh` | Configure Git user/email and optionally generate SSH keys |
-| `github-runner-manager-all-in-one.sh` | Manage multiple self-hosted GitHub Actions runners |
-| `install-php.sh` | Install PHP with selectable versions |
-| `install-php-extensions.sh` | Install common PHP extensions |
-| `pm2-manager.sh` | Manage PM2 processes (start/stop/logs/monitor) |
+```bash
+git clone https://github.com/nooblk-98/wordpress-docker-fpm-nginx.git
+cd wordpress-docker-fpm-nginx
+sudo bash setup.sh
+```
 
----
-
-### Docker (3 scripts)
-| Script | Description |
-|--------|-------------|
-| `install.sh` | Install Docker and Docker Compose |
-| `cleanup-docker.sh` | Remove unused Docker resources |
-| `remove-containers.sh` | Interactive container removal |
+The script will:
+- Prompt for your domain, email, and DB credentials
+- Generate `.env` from `.env.example`
+- Build and start all containers
+- Set correct file permissions
+- Optionally obtain a Let's Encrypt SSL certificate
 
 ---
 
-### Networking (4 scripts)
-| Script | Description |
-|--------|-------------|
-| `test-bandwidth.sh` | Run a bandwidth speed test |
-| `scan-ports.sh` | Quick port scanner |
-| `show-network-info.sh` | Display local network information |
-| `manage-smb-mounts.sh` | SMB/CIFS mount manager |
+## Manual Installation Guide
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/nooblk-98/wordpress-docker-fpm-nginx.git
+cd wordpress-docker-fpm-nginx
+```
+
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Edit the following values:
+
+```env
+NGINX_HTTP_PORT=80
+NGINX_HTTPS_PORT=443
+
+DB_NAME=wordpress
+DB_USER=wpuser
+DB_PASSWORD=your_strong_password
+DB_ROOT_PASSWORD=your_root_password
+
+DOMAIN=yourdomain.com
+EMAIL=admin@yourdomain.com
+```
+
+### 3. Update Nginx server_name
+
+Edit [nginx/conf.d/wordpress.conf](nginx/conf.d/wordpress.conf) and replace `_` with your domain:
+
+```nginx
+server_name yourdomain.com www.yourdomain.com;
+```
+
+### 4. Build and start containers
+
+```bash
+docker compose up -d --build
+```
+
+### 5. Verify containers are running
+
+```bash
+docker compose ps
+```
+
+Expected output:
+
+```
+NAME          IMAGE                          STATUS
+wp_nginx      nginx:alpine                   Up
+wp_php        wordpress-docker-fpm-nginx-php Up
+wp_db         mariadb:11                     Up
+```
+
+### 6. Set WordPress file permissions
+
+```bash
+docker compose exec php chown -R www-data:www-data /var/www/html
+docker compose exec php find /var/www/html -type d -exec chmod 755 {} \;
+docker compose exec php find /var/www/html -type f -exec chmod 644 {} \;
+```
+
+### 7. Complete WordPress installation
+
+Visit `http://yourdomain.com` in your browser and follow the WordPress setup wizard.
 
 ---
 
-### Node.js (1 script)
-| Script | Description |
-|--------|-------------|
-| `install.sh` | Install Node.js using NVM |
+## SSL Setup (Let's Encrypt)
+
+### Prerequisites
+- Domain DNS must point to your server's IP
+- Port 80 must be publicly accessible
+
+### Obtain certificate
+
+```bash
+docker compose run --rm certbot certonly \
+    --webroot --webroot-path=/var/www/certbot \
+    --email admin@yourdomain.com \
+    --agree-tos --no-eff-email \
+    -d yourdomain.com -d www.yourdomain.com
+```
+
+### Enable HTTPS in Nginx
+
+Edit [nginx/conf.d/wordpress.conf](nginx/conf.d/wordpress.conf):
+
+1. Uncomment `return 301 https://...` inside the HTTP block
+2. Uncomment the entire `server { listen 443 ... }` block
+3. Replace `yourdomain.com` with your actual domain
+4. Reload Nginx:
+
+```bash
+docker compose exec nginx nginx -s reload
+```
+
+### Auto-renew SSL
+
+The `certbot` container is configured to auto-renew every 12 hours. It runs as a background service when the stack is up.
+
+To manually trigger renewal:
+
+```bash
+docker compose up certbot
+```
 
 ---
 
-### Security (3 scripts)
-| Script | Description |
-|--------|-------------|
-| `ssh-hardening.sh` | Harden SSH configuration |
-| `firewall-manager.sh` | Manage UFW firewall rules |
-| `fail2ban-setup.sh` | Install and configure Fail2ban |
+## Common Commands
 
----
-
-### System (3 scripts)
-| Script | Description |
-|--------|-------------|
-| `user-manager.sh` | Create/delete users and manage sudo access |
-| `swap-manager.sh` | Create and manage swap space |
-| `timezone.sh` | Set system timezone interactively |
-
----
-
-### Web Server (4 scripts)
-| Script | Description |
-|--------|-------------|
-| `install-nginx.sh` | Install Nginx |
-| `install-apache.sh` | Install Apache |
-| `setup-reverse-proxy.sh` | Configure Nginx reverse proxy |
-| `certbot-manager.sh` | All-in-one SSL certificate manager |
+| Action                  | Command                                      |
+|-------------------------|----------------------------------------------|
+| Start stack             | `docker compose up -d`                       |
+| Stop stack              | `docker compose down`                        |
+| View logs               | `docker compose logs -f`                     |
+| Nginx logs              | `docker compose logs -f nginx`               |
+| PHP logs                | `docker compose logs -f php`                 |
+| Restart Nginx           | `docker compose restart nginx`               |
+| Reload Nginx config     | `docker compose exec nginx nginx -s reload`  |
+| MySQL shell             | `docker compose exec db mysql -u wpuser -p`  |
+| PHP shell               | `docker compose exec php bash`               |
+| Rebuild PHP image       | `docker compose build php`                   |
 
 ---
 
 ## Configuration
 
-Notes:
-- Most scripts require `sudo` or root privileges.
-- The menu auto-discovers scripts from `tools/*/*.sh`.
-- Each script is interactive and prompts for required values.
+### PHP settings
+
+Edit [php/php.ini](php/php.ini) to adjust:
+- `memory_limit` (default: 256M)
+- `upload_max_filesize` (default: 64M)
+- `max_execution_time` (default: 300s)
+- OPcache settings
+
+After changes, rebuild the PHP container:
+
+```bash
+docker compose build php && docker compose up -d php
+```
+
+### Nginx settings
+
+Edit [nginx/nginx.conf](nginx/nginx.conf) for global settings or [nginx/conf.d/wordpress.conf](nginx/conf.d/wordpress.conf) for site-specific config.
+
+Reload without downtime:
+
+```bash
+docker compose exec nginx nginx -s reload
+```
 
 ---
 
-## Monitoring and health
+## Backup & Restore
 
-- The menu header shows OS, memory usage, and disk usage.
-- Most scripts print status messages and provide next-step prompts.
+### Backup database
+
+```bash
+docker compose exec db mysqldump -u wpuser -p wordpress > backup_$(date +%F).sql
+```
+
+### Restore database
+
+```bash
+cat backup_2025-01-01.sql | docker compose exec -T db mysql -u wpuser -p wordpress
+```
+
+### Backup WordPress files
+
+```bash
+tar -czf wordpress_files_$(date +%F).tar.gz wordpress/
+```
 
 ---
 
 ## Troubleshooting
 
-- Run scripts with `bash -x` if you need verbose shell debugging.
-- If a tool is missing, install it via your package manager and retry.
-- For menu issues, verify `curl` and `git` are available.
+**502 Bad Gateway**
+- PHP-FPM container may not be ready. Check: `docker compose logs php`
 
----
+**Database connection error**
+- Verify `.env` credentials match. Check: `docker compose logs db`
 
-## Contributing
+**Permission denied on uploads**
+- Re-run the permissions fix from step 6.
 
-1) Fork and create a feature branch. 2) Make changes with tests or manual checks. 3) Update documentation when behavior changes. 4) Open a PR with a clear summary.
+**SSL certificate failed**
+- Ensure DNS is propagated and port 80 is open on your firewall.
 
 ---
 
 ## License
 
-No license file is present in this repository. Add one if you want to specify licensing terms.
-
----
-
-<div align="center">
-
-**Made with ❤️ by NoobLK**
-
-⬆ Back to top
-
-</div>
+MIT
