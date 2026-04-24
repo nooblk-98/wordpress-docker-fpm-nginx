@@ -39,7 +39,7 @@ services:
       - wp_network
 
   db:
-    image: mariadb:11
+    image: mariadb:${DB_VERSION:-11}
     container_name: wp_db
     restart: unless-stopped
     environment:
