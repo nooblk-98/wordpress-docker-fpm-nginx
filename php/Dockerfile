@@ -1,13 +1,10 @@
 ARG PHP_VERSION=8.3
 FROM wordpress:php${PHP_VERSION}-fpm-alpine
 
-RUN apk add --no-cache \
-    imagemagick \
-    imagemagick-dev \
-    $PHPIZE_DEPS \
-    && pecl install imagick \
-    && docker-php-ext-enable imagick \
-    && apk del $PHPIZE_DEPS
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/install-php-extensions \
+    && install-php-extensions imagick
 
 RUN docker-php-ext-install \
     mysqli \
