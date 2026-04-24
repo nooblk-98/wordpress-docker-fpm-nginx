@@ -110,27 +110,6 @@ services:
       retries: 3
       start_period: 5s
 
-  wpcli:
-    image: wordpress:cli
-    container_name: wp_cli
-    volumes:
-      - ./wordpress:/var/www/html
-    environment:
-      - WORDPRESS_DB_HOST=${DB_HOST:-db}
-      - WORDPRESS_DB_NAME=${DB_NAME:-wordpress}
-      - WORDPRESS_DB_USER=${DB_USER:-wpuser}
-      - WORDPRESS_DB_PASSWORD=${DB_PASSWORD:-wppassword}
-    depends_on:
-      db:
-        condition: service_healthy
-      php:
-        condition: service_healthy
-    networks:
-      - wp_network
-    user: "33:33"
-    profiles:
-      - tools
-
   certbot:
     image: certbot/certbot:latest
     container_name: wp_certbot

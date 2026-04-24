@@ -11,7 +11,7 @@ Production-ready WordPress stack using PHP-FPM, Nginx, and MariaDB — fully con
 | Database | `mariadb:11`                   |
 | Redis    | `redis:alpine`                 |
 | SSL      | `certbot/certbot`              |
-| WP-CLI   | `wordpress:cli`                |
+| WP-CLI   | built into PHP-FPM image       |
 
 ---
 
@@ -130,14 +130,14 @@ Visit `http://yourdomain.com` in your browser and follow the WordPress setup wiz
 Redis is included in the stack for persistent object caching. After the containers are running, enable it with WP-CLI:
 
 ```bash
-docker compose --profile tools run --rm wpcli wp plugin install redis-cache --activate
-docker compose --profile tools run --rm wpcli wp redis enable
+docker compose exec php wp plugin install redis-cache --activate --allow-root
+docker compose exec php wp redis enable --allow-root
 ```
 
 Verify Redis is connected:
 
 ```bash
-docker compose --profile tools run --rm wpcli wp redis status
+docker compose exec php wp redis status --allow-root
 ```
 
 > Redis memory limit is controlled by `REDIS_MAXMEMORY` in `.env` (default: `128mb`).
@@ -146,21 +146,21 @@ docker compose --profile tools run --rm wpcli wp redis status
 
 ## WP-CLI
 
-Run any WP-CLI command without entering the container:
+WP-CLI is built into the PHP-FPM container — no extra container needed:
 
 ```bash
-docker compose --profile tools run --rm wpcli wp <command>
+docker compose exec php wp <command> --allow-root
 ```
 
 Common examples:
 
-| Action                  | Command                                                                 |
-|-------------------------|-------------------------------------------------------------------------|
-| List plugins            | `docker compose --profile tools run --rm wpcli wp plugin list`         |
-| Update all plugins      | `docker compose --profile tools run --rm wpcli wp plugin update --all` |
-| Flush cache             | `docker compose --profile tools run --rm wpcli wp cache flush`         |
-| Search-replace URL      | `docker compose --profile tools run --rm wpcli wp search-replace 'old.com' 'new.com'` |
-| Create admin user       | `docker compose --profile tools run --rm wpcli wp user create admin admin@example.com --role=administrator` |
+| Action             | Command                                                                                        |
+|--------------------|------------------------------------------------------------------------------------------------|
+| List plugins       | `docker compose exec php wp plugin list --allow-root`                                          |
+| Update all plugins | `docker compose exec php wp plugin update --all --allow-root`                                  |
+| Flush cache        | `docker compose exec php wp cache flush --allow-root`                                          |
+| Search-replace URL | `docker compose exec php wp search-replace 'old.com' 'new.com' --allow-root`                  |
+| Create admin user  | `docker compose exec php wp user create admin admin@example.com --role=administrator --allow-root` |
 
 ---
 
@@ -220,8 +220,8 @@ docker compose up certbot
 | PHP shell               | `docker compose exec php bash`                                                 |
 | Rebuild PHP image       | `docker compose build php`                                                     |
 | Redis CLI               | `docker compose exec redis redis-cli`                                          |
-| Flush Redis cache       | `docker compose --profile tools run --rm wpcli wp cache flush`                 |
-| Run WP-CLI command      | `docker compose --profile tools run --rm wpcli wp <command>`                   |
+| Flush Redis cache       | `docker compose exec php wp cache flush --allow-root`                          |
+| Run WP-CLI command      | `docker compose exec php wp <command> --allow-root`                            |
 
 ---
 
@@ -291,7 +291,7 @@ tar -czf wordpress_files_$(date +%F).tar.gz wordpress/
 
 **Redis not connecting**
 - Check Redis is running: `docker compose logs redis`
-- Verify status inside WordPress: `docker compose --profile tools run --rm wpcli wp redis status`
+- Verify status inside WordPress: `docker compose exec php wp redis status --allow-root`
 
 ---
 
