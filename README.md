@@ -29,7 +29,7 @@ Production-ready WordPress stack using PHP-FPM, Nginx, and MariaDB — fully con
 ├── php/
 │   ├── Dockerfile            # PHP-FPM image with extensions
 │   └── php.ini               # Custom PHP settings
-└── wordpress/                # WordPress files (auto-created, git-ignored)
+└── /var/www/html/            # WordPress files on host (mounted into containers)
 ```
 
 ---
